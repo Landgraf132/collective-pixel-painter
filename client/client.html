@@ -1,0 +1,188 @@
+<html>
+
+<head>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js" type="text/javascript" language="javascript"></script>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style type="text/css">
+    #canv {
+      border-style: solid;
+    }
+
+    .colorBtn {
+      width: 35px;
+      height: 25px;
+    }
+
+    #blueBtn {
+      background: blue;
+
+    }
+  </style>
+
+</head>
+
+<body>
+  <canvas id="canv" width="1200" height="500"></canvas>
+  <script>
+    //create pallete
+    //1200 500
+    var currentColor = "#000000";
+    var pixelSize = 5;
+    var localPixelSize = pixelSize + 2; //pixelSizeWidthBorder
+    var backgroundColor = "#f5f5dc";
+    var pallete = ["#788084", "#0000fc", "#0000c4", "#4028c4", "#94008c", "#AC0028", "#ac1000", "#8c1800", "#503000", "#007800", "#006800", "#005800", "#004058", "#000000",
+      "#bcc0c4", "#0078fc", "#0088fc", "#6848fc", "#dc00d4", "#e40060", "#fc3800", "#e46018", "#ac8000", "#00b800", "#00a800", "#00a848", "#008894", "#2c2c2c",
+      "#fcf8fc", "#38c0fc", "#6888FC", "#9c78fc", "#fc78fc", "#fc589c", "#fc7858", "#fca048", "#fcb800", "#bcf818", "#58d858", "#58f89c", "#00e8e4", "#606060",
+      "#ffffff", "#a4e8fc", "#bcb8fc", "#dcb8fc", "#fcb8fc", "#F4C0E0", "#f4d0b4", "#fce0b4", "#fcd884", "#dcf878", "#b8f878", "#b0f0d8", "#00f8fc", "#C8C0C0"
+    ];
+    var palleteBtn = new Array(pallete.length);
+    var palleteFnc = new Array(pallete.length);
+    document.write("<table border='1'>");
+    var trOpen = false;
+    for (var i = 0; i < pallete.length; ++i) {
+      if (i > 0 && i % 14 == 0) {
+        if (trOpen == false) {
+          trOpen = true;
+          document.write("<tr>");
+        } else {
+          document.write("</tr>");
+        }
+      }
+
+      document.write("<td id=" + pallete[i] + " class='colorBtn' name='" + pallete[i] + "' style='background:" + pallete[i] + "' > </td>");
+
+
+      palleteBtn[i] = document.getElementById(pallete[i]);
+      palleteFnc[i] = function() {
+        console.log(
+          currentColor = this.getAttribute("name"));
+
+      };
+
+    }
+
+    for (var i = 0; i < palleteBtn.length; ++i) {
+      palleteBtn[i].onclick = palleteFnc[i];
+
+
+    }
+    document.write("</table>");
+
+    //work with canvas
+
+
+    var canvas = document.getElementById('canv');
+    var ctx = canvas.getContext('2d');
+
+    var canvasWidth = canvas.width;
+    var canvasHeight = canvas.height;
+
+    ctx.fillStyle = "#f5f5dc";
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    //draw cells
+    ctx.strokeStyle = "#989898";
+    ctx.lineWidth = 1;
+    for (var i = -1; i < canvasWidth; i += pixelSize + 2) {
+      //for (var j = 0; j < 500; j++) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, canvasHeight);
+      ctx.stroke();
+      //  }
+
+    }
+    for (var i = -1; i < canvasHeight; i += pixelSize + 2) {
+      //for (var j = 0; j < 500; j++) {
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(canvasWidth, i);
+      ctx.stroke();
+      //  }
+
+    }
+    var drawPixel = function(x, y, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, pixelSize, pixelSize);
+    }
+
+    //client
+
+    var socket = io();
+
+    socket.on('send canvas map', function(msg) {
+      console.log(msg);
+      for (var i = 0; i < msg.length; ++i) {
+        for (var j = 0; j < msg[i].length; ++j) {
+          if (msg[i][j] != backgroundColor) {
+            var pos = getPosByCell(i, j);
+            drawPixel(pos.x, pos.y, msg[i][j]);
+          }
+        }
+      }
+    });
+
+    socket.on('new point', function(msg) {
+      var data = JSON.parse(msg);
+      var coordCell = getPosByCell(data.Xpos, data.Ypos);
+      drawPixel(coordCell.x, coordCell.y, data.Color);
+    });
+
+    function getCursorPosition(canvas, curX, curY) {
+      canvas = canvas || window.event
+
+      var point = new Object(),
+        x = 0,
+        y = 0;
+
+      var rect = canvas.getBoundingClientRect();
+      point.x = curX - rect.left - 5;
+      point.y = curY - rect.top - 5;
+
+      return point;
+    }
+
+    //main
+    var getPosByCell = function(inpXcell, inpYcell) {
+      var point = new Object(),
+        x = 0,
+        y = 0;
+      point.x = inpXcell * localPixelSize;
+      point.y = inpYcell * localPixelSize;
+      if (point.x < 0) point.x = 0;
+      if (point.y < 0) point.y = 0;
+      return point;
+    }
+
+    var getCellByPos = function(inpX, inpY) {
+      var point = new Object(),
+        x = 0,
+        y = 0;
+      point.x = Math.floor((inpX) / (localPixelSize));
+      point.y = Math.floor((inpY) / (localPixelSize));
+      return point;
+    }
+
+    $(canvas).click(function(e) {
+      var coord = getCursorPosition(canvas, e.clientX, e.clientY);
+      console.log("User тыкнул:" + coord.x + " " + coord.y);
+      var coordCell = getCellByPos(coord.x, coord.y);
+      console.log("Координаты ячейки:" + coordCell.x + " " + coordCell.y);
+      var newCoord = getPosByCell(coordCell.x, coordCell.y);
+      console.log("User получил:" + newCoord.x + " " + newCoord.y);
+
+      drawPixel(newCoord.x, newCoord.y, currentColor);
+
+      socket.emit('on paint', JSON.stringify({
+        Xpos: coordCell.x,
+        Ypos: coordCell.y,
+        Color: currentColor
+      }));
+
+
+
+    });
+  </script>
+</body>
+
+</html>
