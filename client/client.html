@@ -3,20 +3,42 @@
 <head>
   <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js" type="text/javascript" language="javascript"></script>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/smoothie/1.34.0/smoothie.js"></script>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.js"></script>
   <style type="text/css">
     #canv {
       border-style: solid;
+
+    }
+
+    #resLoad {
+      /*border-style: solid;*/
+      float: left;
+      width: 350px;
+      height: 135px;
+    }
+
+    #userPerCpu {
+      /*border-style: solid;*/
+      width: 350px;
+      height: 135px;
+      float: left;
+    }
+
+    #palleteTable {
+      float: left;
+      height: 121px;
+    }
+
+    #panel {
+      width: 1000px;
+
     }
 
     .colorBtn {
       width: 35px;
       height: 25px;
-    }
-
-    #blueBtn {
-      background: blue;
-
     }
   </style>
 
@@ -24,6 +46,13 @@
 
 <body>
   <canvas id="canv" width="1200" height="500"></canvas>
+  <div>
+    <div style="float:left">Пользователей онлайн: </div>
+    <div id="userOnline">0</div>
+    <div style="float:left">Вам осталось ждать: </div>
+    <div id="timeLeft">0</div>
+  </div>
+
   <script>
     //create pallete
     //1200 500
@@ -31,14 +60,15 @@
     var pixelSize = 5;
     var localPixelSize = pixelSize + 2; //pixelSizeWidthBorder
     var backgroundColor = "#f5f5dc";
+    var resLoadGrapfIsStart = false;
     var pallete = ["#788084", "#0000fc", "#0000c4", "#4028c4", "#94008c", "#AC0028", "#ac1000", "#8c1800", "#503000", "#007800", "#006800", "#005800", "#004058", "#000000",
       "#bcc0c4", "#0078fc", "#0088fc", "#6848fc", "#dc00d4", "#e40060", "#fc3800", "#e46018", "#ac8000", "#00b800", "#00a800", "#00a848", "#008894", "#2c2c2c",
       "#fcf8fc", "#38c0fc", "#6888FC", "#9c78fc", "#fc78fc", "#fc589c", "#fc7858", "#fca048", "#fcb800", "#bcf818", "#58d858", "#58f89c", "#00e8e4", "#606060",
       "#ffffff", "#a4e8fc", "#bcb8fc", "#dcb8fc", "#fcb8fc", "#F4C0E0", "#f4d0b4", "#fce0b4", "#fcd884", "#dcf878", "#b8f878", "#b0f0d8", "#00f8fc", "#C8C0C0"
     ];
     var palleteBtn = new Array(pallete.length);
-    var palleteFnc = new Array(pallete.length);
-    document.write("<table border='1'>");
+    var palleteFnc = new Array(pallete.length); //todo: refactor it
+    document.write("<div id='panel'><table id='palleteTable' border='1'>");
     var trOpen = false;
     for (var i = 0; i < pallete.length; ++i) {
       if (i > 0 && i % 14 == 0) {
@@ -69,9 +99,10 @@
     }
     document.write("</table>");
 
+    document.write(" <canvas id='resLoad' </canvas> </div> ");
+    document.write("<div id='userPerCpu'  ></div>")
+    //  document.write("<canvas id='userPerCpu' width='300' height=" + $('#palleteTable').height() + "</canvas>  ");
     //work with canvas
-
-
     var canvas = document.getElementById('canv');
     var ctx = canvas.getContext('2d');
 
@@ -111,7 +142,7 @@
     var socket = io();
 
     socket.on('send canvas map', function(msg) {
-      console.log(msg);
+    //  console.log(msg);
       for (var i = 0; i < msg.length; ++i) {
         for (var j = 0; j < msg[i].length; ++j) {
           if (msg[i][j] != backgroundColor) {
@@ -121,6 +152,74 @@
         }
       }
     });
+
+    var userPerCpuPlot = document.getElementById('userPerCpu');
+
+    //work with Status
+    var uptimeField = document.getElementById('uptime');
+    var userOnlineField = document.getElementById('userOnline');
+    var timeLeftField = document.getElementById('timeLeft');
+    socket.on('query update status', function(jsonData) {
+      socket.emit('query status data');
+    });
+    var cpuLoadSeries = new TimeSeries();
+    var userPerCpu = new Map();
+    socket.on('update status', function(jsonData) {
+      if (!resLoadGrapfIsStart) {
+        createCpuTimeline();
+
+        resLoadGrapfIsStart = true;
+      }
+      var data = JSON.parse(jsonData);
+      userOnline.innerHTML = data.userOnline;
+      timeLeft.innerHTML = data.timeLeft + " сек";
+      cpuLoadSeries.append(new Date().getTime(), data.cpuLoad);
+      userPerCpu.set(data.userOnline, data.cpuLoad);
+
+      //updateUserPerCpuPlot
+      var xArray = [];
+      var yArray = [];
+      for (var [key, value] of userPerCpu.entries()) {
+        xArray.push(key);
+        yArray.push(value);
+      }
+      xArray = [1, 2];
+
+      var dataP = [{
+        x: xArray,
+        y: yArray,
+        type: 'bar'
+      }];
+      updateUserPerCpuPlot();
+    });
+
+    var updateUserPerCpuPlot = function() {
+      $(function() {
+        var d1 = [];
+        for (var [key, value] of userPerCpu.entries()) {
+          d1.push([key, value]);
+        }
+        $.plot("#userPerCpu", [{
+          data: d1,
+          bars: {
+            show: true
+          }
+        }]);
+      });
+    };
+
+    function createCpuTimeline() {
+      var chart = new SmoothieChart({
+        maxValue: 100,
+        minValue: 0
+      });
+      chart.addTimeSeries(cpuLoadSeries, {
+        strokeStyle: 'rgba(0, 255, 0, 1)',
+        fillStyle: 'rgba(0, 255, 0, 0.2)',
+        lineWidth: 1
+      });
+      chart.streamTo(document.getElementById("resLoad"), 1000);
+    }
 
     socket.on('new point', function(msg) {
       var data = JSON.parse(msg);
@@ -136,8 +235,8 @@
         y = 0;
 
       var rect = canvas.getBoundingClientRect();
-      point.x = curX - rect.left - 5;
-      point.y = curY - rect.top - 5;
+      point.x = curX - rect.left -2;
+      point.y = curY - rect.top -2;
 
       return point;
     }
@@ -164,25 +263,66 @@
     }
 
     $(canvas).click(function(e) {
-      var coord = getCursorPosition(canvas, e.clientX, e.clientY);
-      console.log("User тыкнул:" + coord.x + " " + coord.y);
+      var coord = getCursorPosition(canvas, e.pageX, e.pageY);
+      //console.log("User тыкнул:" + e.pageX + " " + e.pageY);
       var coordCell = getCellByPos(coord.x, coord.y);
-      console.log("Координаты ячейки:" + coordCell.x + " " + coordCell.y);
+      //console.log("Координаты ячейки:" + coordCell.x + " " + coordCell.y);
       var newCoord = getPosByCell(coordCell.x, coordCell.y);
-      console.log("User получил:" + newCoord.x + " " + newCoord.y);
+    //  console.log("User получил:" + newCoord.x + " " + newCoord.y);
 
-      drawPixel(newCoord.x, newCoord.y, currentColor);
+      //drawPixel(newCoord.x, newCoord.y, currentColor);
 
       socket.emit('on paint', JSON.stringify({
         Xpos: coordCell.x,
         Ypos: coordCell.y,
         Color: currentColor
       }));
-
+      if (timeLeftField.innerHTML == "0 сек") {
+        timeLeftField.innerHTML = ">1сек";
+      }
 
 
     });
   </script>
+
+
+  <!-- Yandex.Metrika informer -->
+  <a href="https://metrika.yandex.ru/stat/?id=47823280&amp;from=informer" target="_blank" rel="nofollow"><img src="https://informer.yandex.ru/informer/47823280/3_1_FFFFFFFF_EFEFEFFF_0_pageviews"
+  style="width:88px; height:31px; border:0;" alt="Яндекс.Метрика" title="Яндекс.Метрика: данные за сегодня (просмотры, визиты и уникальные посетители)" class="ym-advanced-informer" data-cid="47823280" data-lang="ru" /></a>
+  <!-- /Yandex.Metrika informer -->
+
+  <!-- Yandex.Metrika counter -->
+  <script type="text/javascript">
+    (function(d, w, c) {
+      (w[c] = w[c] || []).push(function() {
+        try {
+          w.yaCounter47823280 = new Ya.Metrika({
+            id: 47823280,
+            clickmap: true,
+            trackLinks: true,
+            accurateTrackBounce: true
+          });
+        } catch (e) {}
+      });
+
+      var n = d.getElementsByTagName("script")[0],
+        s = d.createElement("script"),
+        f = function() {
+          n.parentNode.insertBefore(s, n);
+        };
+      s.type = "text/javascript";
+      s.async = true;
+      s.src = "https://mc.yandex.ru/metrika/watch.js";
+
+      if (w.opera == "[object Opera]") {
+        d.addEventListener("DOMContentLoaded", f, false);
+      } else {
+        f();
+      }
+    })(document, window, "yandex_metrika_callbacks");
+  </script>
+  <noscript><div><img src="https://mc.yandex.ru/watch/47823280" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+  <!-- /Yandex.Metrika counter -->
 </body>
 
 </html>
