@@ -99,7 +99,7 @@
     }
     document.write("</table>");
 
-    document.write(" <canvas id='resLoad' </canvas> </div> ");
+    document.write(" <canvas id='resLoad'  width ='350' </canvas> </div> ");
     document.write("<div id='userPerCpu'  ></div>")
     //  document.write("<canvas id='userPerCpu' width='300' height=" + $('#palleteTable').height() + "</canvas>  ");
     //work with canvas
@@ -176,20 +176,6 @@
       cpuLoadSeries.append(new Date().getTime(), data.cpuLoad);
       userPerCpu.set(data.userOnline, data.cpuLoad);
 
-      //updateUserPerCpuPlot
-      var xArray = [];
-      var yArray = [];
-      for (var [key, value] of userPerCpu.entries()) {
-        xArray.push(key);
-        yArray.push(value);
-      }
-      xArray = [1, 2];
-
-      var dataP = [{
-        x: xArray,
-        y: yArray,
-        type: 'bar'
-      }];
       updateUserPerCpuPlot();
     });
 
@@ -235,9 +221,15 @@
         y = 0;
 
       var rect = canvas.getBoundingClientRect();
-      point.x = curX - rect.left -2;
-      point.y = curY - rect.top -2;
+      var scaleX = canvas.width  / rect.width;
+   var scaleY = canvas.height / rect.height;
 
+       point.x = Math.ceil((curX - rect.left) *scaleX);
+      point.y = Math.ceil((curY - rect.top) *scaleY);
+
+
+      // point.x = curX - canvas.offsetLeft -2 ;
+      // point.y = curY - canvas.offsetTop  -2;
       return point;
     }
 
@@ -263,10 +255,13 @@
     }
 
     $(canvas).click(function(e) {
-      var coord = getCursorPosition(canvas, e.pageX, e.pageY);
-      //console.log("User тыкнул:" + e.pageX + " " + e.pageY);
+      var screenAvailWidth = window.screen.height;
+
+//console.log(screenAvailWidth);
+      var coord = getCursorPosition(canvas, e.clientX, e.clientY);
+      // console.log("User тыкнул:" + e.clientX + " " + e.clientY);
       var coordCell = getCellByPos(coord.x, coord.y);
-      //console.log("Координаты ячейки:" + coordCell.x + " " + coordCell.y);
+      // console.log("Координаты ячейки:" + coordCell.x + " " + coordCell.y);
       var newCoord = getPosByCell(coordCell.x, coordCell.y);
     //  console.log("User получил:" + newCoord.x + " " + newCoord.y);
 

@@ -77,10 +77,10 @@ var readToCanvasFromFile = function(pathToDataFile) {
 }
 var getTimeLeft = function(userCounts) {
   if (userCounts < 10) {
-    return 1;
+    return 0;
   }
   if (userCounts < 30) {
-    return 2;
+    return 1;
   }
   if (userCounts < 60) {
     return 5;
@@ -182,24 +182,25 @@ io.on('connection', function(socket) {
 
   socket.on('disconnect', function() {
     var ipAddress = socket.handshake.address;
-    if (usersArray.get(ipAddress) !== undefined) {
-      if (usersArray.get(ipAddress).countConnceted > 1) {
+    if (usersArray.get(ipAddress) !== NaN) {
+      if (usersArray.get(ipAddress).countConnceted > 0) {
         usersArray.set(ipAddress, {
           timeLeft: usersArray.get(ipAddress).timeLeft,
           currentTime: usersArray.get(ipAddress).currentTime,
           countConnceted: usersArray.get(ipAddress).countConnceted - 1
         });
         winston.log('info', 'user ' + ipAddress + " decrement connect " + usersArray.get(ipAddress).countConnceted);
-      } else {
-        winston.log('info', 'user disconnected');
-        usersArray.delete(ipAddress);
+        if (usersArray.get(ipAddress).countConnceted <= 0) {
+          winston.log('info', 'user disconnected');
+          usersArray.delete(ipAddress);
+        }
       }
+
     } else {
       winston.log('error', 'user not found : ' + ipAddress);
     }
 
   });
-
 });
 
 http.listen('3000', function() {
@@ -266,7 +267,7 @@ setInterval(function() {
   });
 
 
-}, 100000);
+}, 60000);
 //30000
 
 //update Status
