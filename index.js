@@ -16,19 +16,23 @@ var debug = false;
 app.get('/', function(req, res) {
   res.sendFile(__dirname + '/client/client.html');
 });
-// app.get('/bot', function(req, res) {
-//   res.sendFile(__dirname + '/client/bot.html');
-// });
+app.get('/test', function(req, res) {
+  res.sendFile(__dirname + '/client/test.html');
+});
 var uptime = 0;
 var usersArray = new Map();
 
-
+var pallete = ["#788084", "#0000fc", "#0000c4", "#4028c4", "#94008c", "#AC0028", "#ac1000", "#8c1800", "#503000", "#007800", "#006800", "#005800", "#004058", "#000000",
+  "#bcc0c4", "#0078fc", "#0088fc", "#6848fc", "#dc00d4", "#e40060", "#fc3800", "#e46018", "#ac8000", "#00b800", "#00a800", "#00a848", "#008894", "#2c2c2c",
+  "#fcf8fc", "#38c0fc", "#6888FC", "#9c78fc", "#fc78fc", "#fc589c", "#fc7858", "#fca048", "#fcb800", "#bcf818", "#58d858", "#58f89c", "#00e8e4", "#606060",
+  "#ffffff", "#a4e8fc", "#bcb8fc", "#dcb8fc", "#fcb8fc", "#F4C0E0", "#f4d0b4", "#fce0b4", "#fcd884", "#dcf878", "#b8f878", "#b0f0d8", "#00f8fc", "#C8C0C0"
+];
 
 var pixelSize = 5;
-var localPixelSize = pixelSize + 2; //pixelSizeWidthBorder
+var localPixelSize = pixelSize; //pixelSizeWidthBorder
 //1200 500
-var canvasMapWidth = Math.floor(1200 / localPixelSize) + 1;
-var canvasMapHeight = Math.floor(500 / localPixelSize) + 1;
+var canvasMapWidth = Math.floor(1350 / localPixelSize) + 1;
+var canvasMapHeight = Math.floor(600 / localPixelSize) + 1;
 var canvasMap = new Array(canvasMapWidth);
 var alreadyLoadCanvasMap = false;
 var backgroundColor = "#f5f5dc";
@@ -83,18 +87,24 @@ var getTimeLeft = function(userCounts) {
     return 1;
   }
   if (userCounts < 60) {
-    return 5;
+    return 2;
   }
   if (userCounts < 100) {
-    return 10;
+    return 3;
   }
   if (userCounts < 200) {
-    return 20;
+    return 4;
+  }
+  if (userCounts < 250) {
+    return 5;
   }
   if (userCounts < 300) {
-    return 30;
+    return 6;
   }
-  return 40;
+  if (userCounts < 500) {
+    return 7;
+  }
+  return 8;
 }
 
 var start = function() {
@@ -112,17 +122,18 @@ io.on('connection', function(socket) {
     usersArray.set(ipAddress, {
       timeLeft: 0,
       currentTime: 0,
-      countConnceted: 1
+      connectionCounter: 1 //countConnceted
     });
-    winston.log('info', 'a user connected IP: ' + ipAddress);
+
+    winston.log('info', 'users online: ' + usersArray.size);
   } else {
-    var alreadyCon = usersArray.get(ipAddress).countConnceted + 1;
+    var newCount = usersArray.get(ipAddress).connectionCounter + 1;
     usersArray.set(ipAddress, {
       timeLeft: usersArray.get(ipAddress).timeLeft,
       currentTime: usersArray.get(ipAddress).currentTime,
-      countConnceted: alreadyCon
+      connectionCounter: newCount
     });
-    winston.log('info', 'user already connected: ' + ipAddress + " " + usersArray.get(ipAddress).countConnceted);
+    winston.log('info', 'user already connected: ' + ipAddress + " " + usersArray.get(ipAddress).connectionCounter);
   }
   socket.emit('send canvas map', canvasMap);
   socket.on('on paint', function(msg) {
@@ -132,8 +143,13 @@ io.on('connection', function(socket) {
       var data = JSON.parse(msg);
       var curTime = new Date().getTime();
       //  winston.log('info', 'message: ' + data.Xpos + " " + data.Ypos);
+      var canDraw = false;
 
-      if (data.Xpos != null &&
+      if (pallete.indexOf(data.Color) != -1) {
+        canDraw = true;
+      }
+      if (canDraw &&
+        data.Xpos != null &&
         data.Ypos != null &&
         data.Xpos < canvasMap.length &&
         data.Ypos < canvasMap[0].length &&
@@ -182,25 +198,33 @@ io.on('connection', function(socket) {
 
   socket.on('disconnect', function() {
     var ipAddress = socket.handshake.address;
-    if (usersArray.get(ipAddress) !== NaN) {
-      if (usersArray.get(ipAddress).countConnceted > 0) {
+    winston.log('info', 'user ' + ipAddress + " try disconnect ");
+    if (usersArray.get(ipAddress) !== undefined) {
+      var connectCount = usersArray.get(ipAddress).connectionCounter;
+      if (connectCount === undefined) {
+        connectCount = 1;
+      }
+      if (connectCount > 0) {
+        connectCount--;
         usersArray.set(ipAddress, {
           timeLeft: usersArray.get(ipAddress).timeLeft,
           currentTime: usersArray.get(ipAddress).currentTime,
-          countConnceted: usersArray.get(ipAddress).countConnceted - 1
+          connectionCounter: connectCount
         });
-        winston.log('info', 'user ' + ipAddress + " decrement connect " + usersArray.get(ipAddress).countConnceted);
-        if (usersArray.get(ipAddress).countConnceted <= 0) {
-          winston.log('info', 'user disconnected');
-          usersArray.delete(ipAddress);
-        }
-      }
 
+      }
+      if (connectCount <= 0) {
+        winston.log('info', 'user disconnected');
+        usersArray.delete(ipAddress);
+      } else {
+        winston.log('info', 'user not disconnected ' + ipAddress + " conn: " + usersArray.get(ipAddress).connectionCounter);
+      }
     } else {
       winston.log('error', 'user not found : ' + ipAddress);
     }
 
   });
+  winston.log('info', 'a user connected IP: ' + ipAddress);
 });
 
 http.listen('3000', function() {
@@ -208,10 +232,13 @@ http.listen('3000', function() {
   start();
 });
 
+function getUnixTime() {
+  return parseInt(new Date().getTime() / 1000)
+}
+
 setInterval(function() {
   winston.log('info', 'create archive');
-  var now = new Date();
-  var formatedDate = now.getFullYear() + "-" + now.getMonth() + "-" + now.getDate() + "-" + now.getHours() + "-" + now.getMinutes() + now.getSeconds();
+  var formatedDate = getUnixTime();
   var fileName = "canvas.data";
   var pathToSaveFile = "canvasData/data/";
 
@@ -251,8 +278,8 @@ setInterval(function() {
   });
 
   var pathCpuLoadFile = "cpuLoad.txt";
-  var userPerCpuStr = usersArray.size+","+cpuLoad+'\n';
-    fs.open(pathCpuLoadFile, "a+", 0644, function(err, file_handle) {
+  var userPerCpuStr = usersArray.size + "," + cpuLoad + '\n';
+  fs.open(pathCpuLoadFile, "a+", 0644, function(err, file_handle) {
     if (!err) {
       fs.write(file_handle, userPerCpuStr, null, 'ascii', function(err, written) {
         if (!err) {
@@ -274,5 +301,19 @@ setInterval(function() {
 setInterval(function() {
 
   io.emit('query update status');
+
+}, 1000);
+
+//костыль для NanUser
+setInterval(function() {
+  var usersDeleteArray = [];
+  for (var [key, value] of usersArray.entries()) {
+    if (value.connectionCounter === NaN) {
+      usersDeleteArray.push(key);
+    }
+    for (var i = 0; i < usersDeleteArray.length; ++i) {
+      usersArray.delete(usersDeleteArray[i]);
+    }
+  }
 
 }, 1000);

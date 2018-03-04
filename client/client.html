@@ -9,7 +9,7 @@
   <style type="text/css">
     #canv {
       border-style: solid;
-
+      border-width: 1px;
     }
 
     #resLoad {
@@ -45,7 +45,7 @@
 </head>
 
 <body>
-  <canvas id="canv" width="1200" height="500"></canvas>
+  <canvas id="canv" width="1350" height="600"></canvas>
   <div>
     <div style="float:left">Пользователей онлайн: </div>
     <div id="userOnline">0</div>
@@ -58,7 +58,7 @@
     //1200 500
     var currentColor = "#000000";
     var pixelSize = 5;
-    var localPixelSize = pixelSize + 2; //pixelSizeWidthBorder
+    var localPixelSize = pixelSize + 1; //pixelSizeWidthBorder
     var backgroundColor = "#f5f5dc";
     var resLoadGrapfIsStart = false;
     var pallete = ["#788084", "#0000fc", "#0000c4", "#4028c4", "#94008c", "#AC0028", "#ac1000", "#8c1800", "#503000", "#007800", "#006800", "#005800", "#004058", "#000000",
@@ -114,7 +114,7 @@
     //draw cells
     ctx.strokeStyle = "#989898";
     ctx.lineWidth = 1;
-    for (var i = -1; i < canvasWidth; i += pixelSize + 2) {
+    for (var i = -0.5; i < canvasWidth; i += localPixelSize) {
       //for (var j = 0; j < 500; j++) {
       ctx.beginPath();
       ctx.moveTo(i, 0);
@@ -123,7 +123,7 @@
       //  }
 
     }
-    for (var i = -1; i < canvasHeight; i += pixelSize + 2) {
+    for (var i = -0.5; i < canvasHeight; i += localPixelSize) {
       //for (var j = 0; j < 500; j++) {
       ctx.beginPath();
       ctx.moveTo(0, i);
@@ -142,7 +142,7 @@
     var socket = io();
 
     socket.on('send canvas map', function(msg) {
-    //  console.log(msg);
+      //  console.log(msg);
       for (var i = 0; i < msg.length; ++i) {
         for (var j = 0; j < msg[i].length; ++j) {
           if (msg[i][j] != backgroundColor) {
@@ -188,7 +188,9 @@
         $.plot("#userPerCpu", [{
           data: d1,
           bars: {
-            show: true
+            show: true,
+            barWidth: 0.9,
+            align: "center"
           }
         }]);
       });
@@ -221,11 +223,11 @@
         y = 0;
 
       var rect = canvas.getBoundingClientRect();
-      var scaleX = canvas.width  / rect.width;
-   var scaleY = canvas.height / rect.height;
-
-       point.x = Math.ceil((curX - rect.left) *scaleX);
-      point.y = Math.ceil((curY - rect.top) *scaleY);
+      var scaleX = canvas.width / rect.width;
+      var scaleY = canvas.height / rect.height;
+      //console.log(rect.left + "  -- " + rect.top);
+      point.x = Math.ceil((curX - rect.left) * scaleX);
+      point.y = Math.ceil((curY - rect.top) * scaleY);
 
 
       // point.x = curX - canvas.offsetLeft -2 ;
@@ -238,8 +240,8 @@
       var point = new Object(),
         x = 0,
         y = 0;
-      point.x = inpXcell * localPixelSize;
-      point.y = inpYcell * localPixelSize;
+      point.x = inpXcell * (localPixelSize);
+      point.y = inpYcell * (localPixelSize);
       if (point.x < 0) point.x = 0;
       if (point.y < 0) point.y = 0;
       return point;
@@ -249,21 +251,21 @@
       var point = new Object(),
         x = 0,
         y = 0;
-      point.x = Math.floor((inpX) / (localPixelSize));
-      point.y = Math.floor((inpY) / (localPixelSize));
+      point.x = Math.floor((inpX - 1) / (localPixelSize));
+      point.y = Math.floor((inpY - 2) / (localPixelSize));
       return point;
     }
 
     $(canvas).click(function(e) {
       var screenAvailWidth = window.screen.height;
 
-//console.log(screenAvailWidth);
+      //console.log(screenAvailWidth);
       var coord = getCursorPosition(canvas, e.clientX, e.clientY);
-      // console.log("User тыкнул:" + e.clientX + " " + e.clientY);
+      //  console.log("User тыкнул:" + e.clientX + " " + e.clientY);
       var coordCell = getCellByPos(coord.x, coord.y);
-      // console.log("Координаты ячейки:" + coordCell.x + " " + coordCell.y);
+      //  console.log("Координаты ячейки:" + coordCell.x + " " + coordCell.y);
       var newCoord = getPosByCell(coordCell.x, coordCell.y);
-    //  console.log("User получил:" + newCoord.x + " " + newCoord.y);
+      //  console.log("User получил:" + newCoord.x + " " + newCoord.y);
 
       //drawPixel(newCoord.x, newCoord.y, currentColor);
 
