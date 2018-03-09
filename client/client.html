@@ -32,8 +32,56 @@
     }
 
     #panel {
-      width: 1000px;
+      width: 1900px;
 
+    }
+
+    #chat {
+      width: 300px;
+      float: left;
+      height: 400px;
+    }
+
+    #msgForm {
+      overflow-y: scroll;
+      overflow-x: hidden;
+      width: 300px;
+      word-wrap: break-word;
+      height: 150px;
+      padding: 5px;
+      float: left
+    }
+
+    #canvMiniMap {
+      margin: 0 5px 0 5px;
+      border-style: solid;
+      border-width: 1px;
+      float: left;
+    }
+
+    #userNameArea {
+      width: 58px;
+      height: 32px;
+      float: left;
+    }
+
+    #commentArea {
+      width: 242px;
+      height: 32px;
+      float: left;
+    }
+
+    #msgForm li {
+      padding: 5px 10px;
+      max-width: 300px;
+    }
+
+    #msgForm li:nth-child(odd) {
+      background: #b8f878;
+    }
+
+    #sendBtn {
+      width: 300px;
     }
 
     .colorBtn {
@@ -45,7 +93,7 @@
 </head>
 
 <body>
-  <canvas id="canv" width="1350" height="600"></canvas>
+  <canvas id="canv" width="1883" height="701"></canvas>
   <div>
     <div style="float:left">Пользователей онлайн: </div>
     <div id="userOnline">0</div>
@@ -61,11 +109,12 @@
     var localPixelSize = pixelSize + 1; //pixelSizeWidthBorder
     var backgroundColor = "#f5f5dc";
     var resLoadGrapfIsStart = false;
-    var pallete = ["#788084", "#0000fc", "#0000c4", "#4028c4", "#94008c", "#AC0028", "#ac1000", "#8c1800", "#503000", "#007800", "#006800", "#005800", "#004058", "#000000",
+    var pallete = ["#788084", "#0000fc", "#0000c4", "#4028c4", "#94008c", "#ac0028", "#ac1000", "#8c1800", "#503000", "#007800", "#006800", "#005800", "#004058", "#000000",
       "#bcc0c4", "#0078fc", "#0088fc", "#6848fc", "#dc00d4", "#e40060", "#fc3800", "#e46018", "#ac8000", "#00b800", "#00a800", "#00a848", "#008894", "#2c2c2c",
-      "#fcf8fc", "#38c0fc", "#6888FC", "#9c78fc", "#fc78fc", "#fc589c", "#fc7858", "#fca048", "#fcb800", "#bcf818", "#58d858", "#58f89c", "#00e8e4", "#606060",
-      "#ffffff", "#a4e8fc", "#bcb8fc", "#dcb8fc", "#fcb8fc", "#F4C0E0", "#f4d0b4", "#fce0b4", "#fcd884", "#dcf878", "#b8f878", "#b0f0d8", "#00f8fc", "#C8C0C0"
+      "#fcf8fc", "#38c0fc", "#6888fc", "#9c78fc", "#fc78fc", "#fc589c", "#fc7858", "#fca048", "#fcb800", "#bcf818", "#58d858", "#58f89c", "#00e8e4", "#606060",
+      "#ffffff", "#a4e8fc", "#bcb8fc", "#dcb8fc", "#fcb8fc", "#d4c0e0", "#f4d0b4", "#fce0b4", "#fcd884", "#dcf878", "#b8f878", "#b0f0d8", "#00f8fc", "#c8c0c0"
     ];
+
     var palleteBtn = new Array(pallete.length);
     var palleteFnc = new Array(pallete.length); //todo: refactor it
     document.write("<div id='panel'><table id='palleteTable' border='1'>");
@@ -97,17 +146,26 @@
 
 
     }
-    document.write("</table>");
 
-    document.write(" <canvas id='resLoad'  width ='350' </canvas> </div> ");
-    document.write("<div id='userPerCpu'  ></div>")
-    //  document.write("<canvas id='userPerCpu' width='300' height=" + $('#palleteTable').height() + "</canvas>  ");
-    //work with canvas
     var canvas = document.getElementById('canv');
     var ctx = canvas.getContext('2d');
 
     var canvasWidth = canvas.width;
     var canvasHeight = canvas.height;
+
+    document.write("</table>");
+    document.write("<canvas id='canvMiniMap' width=" + canvasWidth / localPixelSize + " height=" + canvasHeight / localPixelSize + "></canvas>");
+    document.write(" <canvas id='resLoad'  width ='350' </canvas> </div> ");
+    document.write("<div id='userPerCpu'  ></div>")
+    document.write("<div id='chat'  >Чат:")
+    document.write("<div id='msgForm'  ></div>")
+    document.write("<div id='sendForm'  ><input id='userNameArea' placeholder='Ник'></input> <textarea id='commentArea' placeholder='Сообщение'></textarea><button id='sendBtn' >Отправить</button> </div></div>")
+
+    var miniMapCanvas = document.getElementById('canvMiniMap');
+    var miniMapCtx = miniMapCanvas.getContext('2d');
+    //  document.write("<canvas id='userPerCpu' width='300' height=" + $('#palleteTable').height() + "</canvas>  ");
+    //work with canvas
+
 
     ctx.fillStyle = "#f5f5dc";
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
@@ -132,11 +190,17 @@
       //  }
 
     }
+
     var drawPixel = function(x, y, color) {
       ctx.fillStyle = color;
       ctx.fillRect(x, y, pixelSize, pixelSize);
+
     }
 
+    var drawMiniMapPixel = function(x, y, color) {
+      miniMapCtx.fillStyle = color;
+      miniMapCtx.fillRect(x, y, 1, 1);
+    }
     //client
 
     var socket = io();
@@ -148,6 +212,7 @@
           if (msg[i][j] != backgroundColor) {
             var pos = getPosByCell(i, j);
             drawPixel(pos.x, pos.y, msg[i][j]);
+            drawMiniMapPixel(i, j, msg[i][j]);
           }
         }
       }
@@ -213,6 +278,7 @@
       var data = JSON.parse(msg);
       var coordCell = getPosByCell(data.Xpos, data.Ypos);
       drawPixel(coordCell.x, coordCell.y, data.Color);
+      drawMiniMapPixel(data.Xpos, data.Ypos, data.Color);
     });
 
     function getCursorPosition(canvas, curX, curY) {
@@ -274,14 +340,87 @@
         Ypos: coordCell.y,
         Color: currentColor
       }));
+
+
+
       if (timeLeftField.innerHTML == "0 сек") {
         timeLeftField.innerHTML = ">1сек";
       }
+    });
+    //chat
+    var msgForm = document.getElementById('msgForm'); //chat
+    var commentArea = document.getElementById('commentArea');
+    var userNameArea = document.getElementById('userNameArea');
+    var sendBtn = document.getElementById('sendBtn');
 
+    $(commentArea).keypress(function(e) {
+      if (e.keyCode == 13) {
+        sendBtn.click();
+      };
+    });
+    $(sendBtn).click(function(e) {
+      socket.emit('send msg', JSON.stringify({
+        user: userNameArea.value,
+        msg: commentArea.value
+      }));
+      commentArea.value = "";
+      userNameArea.disabled = true;
+    });
 
+    socket.on('msg to chat', function(msg) {
+      var data = JSON.parse(msg);
+      $('#msgForm').append($('<li>').text(data.user + ": " + data.msg));
+      msgForm.scrollTop = 9999;
+
+    });
+    socket.on('first connect to chat', function(msgStack) {
+      console.log('first connect to chat');
+
+      for (var i = 0; i < msgStack.length; ++i) {
+        var data = msgStack[i];
+        $('#msgForm').append($('<li>').text(data.user + ": " + data.msg));
+      }
     });
   </script>
 
+
+  <!-- Yandex.Metrika informer -->
+  <a href="https://metrika.yandex.ru/stat/?id=47823280&amp;from=informer" target="_blank" rel="nofollow"><img src="https://informer.yandex.ru/informer/47823280/3_1_FFFFFFFF_EFEFEFFF_0_pageviews"
+  style="width:88px; height:31px; border:0;" alt="Яндекс.Метрика" title="Яндекс.Метрика: данные за сегодня (просмотры, визиты и уникальные посетители)" class="ym-advanced-informer" data-cid="47823280" data-lang="ru" /></a>
+  <!-- /Yandex.Metrika informer -->
+
+  <!-- Yandex.Metrika counter -->
+  <script type="text/javascript">
+    (function(d, w, c) {
+      (w[c] = w[c] || []).push(function() {
+        try {
+          w.yaCounter47823280 = new Ya.Metrika({
+            id: 47823280,
+            clickmap: true,
+            trackLinks: true,
+            accurateTrackBounce: true
+          });
+        } catch (e) {}
+      });
+
+      var n = d.getElementsByTagName("script")[0],
+        s = d.createElement("script"),
+        f = function() {
+          n.parentNode.insertBefore(s, n);
+        };
+      s.type = "text/javascript";
+      s.async = true;
+      s.src = "https://mc.yandex.ru/metrika/watch.js";
+
+      if (w.opera == "[object Opera]") {
+        d.addEventListener("DOMContentLoaded", f, false);
+      } else {
+        f();
+      }
+    })(document, window, "yandex_metrika_callbacks");
+  </script>
+  <noscript><div><img src="https://mc.yandex.ru/watch/47823280" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+  <!-- /Yandex.Metrika counter -->
 </body>
 
 </html>
